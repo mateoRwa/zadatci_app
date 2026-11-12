@@ -19,3 +19,13 @@
    Neuhvaćena iznimka u Asynchronous kodu (Future) rezultira neobrađenom pogreškom (unhandled asynchronous exception), što može uzrokovati rušenje aplikacije ili ispis greške u konzoli (u obliku zone errora).
 3. **Zašto se Future stvara u polju, a ne u metodi build, i navedite tri stanja koja svaki zaslon s podacima mora prikazati?**  
    Future se stvara u polju (ili `initState`-u) jer se metoda `build` poziva vrlo često (prilikom svakog renderiranja widgeta). Da se stvara u `build`-u, svaki bi ispis ili promjena stanja ponovno pokretali mrežni zahtjev u beskonačnoj petlji. Tri obavezna stanja su: stanje učitavanja (loading), stanje uspjeha (success/podaci) i stanje pogreške (error).
+
+
+# Zadatci App - Vježba 3
+
+Zašto je bolje zadati boju u temi nego na svakom widgetu?
+Zato što tema omogućuje centralizirano upravljanje vizualnim stilom aplikacije na jednom mjestu (tzv. Single Source of Truth). Time se osigurava dosljednost i vizualna konzistentnost dizajna kroz cijelu aplikaciju, značajno se olakšava održavanje i naknadna promjena palete boja (mijenjanjem postavki u ThemeData umjesto ručnog prepravljanja svakog pojedinog widgeta) te se izbjegava ponavljanje koda, čime kod ostaje čist, modularan i lakši za održavanje.
+
+Provjera razumijevanja 1: Objasnite što radi validate() i zašto validator vraća null za ispravan unos (validate() poziva sve validatore u formi; vraća null kada je unos ispravan jer to signalizira da nema pogreške, dok u suprotnom vraća tekstualnu poruku pogreške).  
+
+ Provjera razumijevanja 2: Objasnite zašto se nakon await Navigator.push provjerava mounted (zato što je korisnik mogao zatvoriti ili promijeniti zaslon dok je trajala asinkrona operacija, pa se provjerom mounted osigurava da se BuildContext više ne koristi ako widget više nije aktivan na ekranu)
