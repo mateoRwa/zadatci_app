@@ -1,12 +1,31 @@
+// ignore_for_file: unused_element, unused_field
+// (obrišite ovaj redak kad dovršite zadatke)
 import 'package:flutter/material.dart';
-import 'forma_ekran.dart';
-import 'repozitorij.dart';
-import 'zadatak.dart';
 
-void main() => runApp(const ZadatciApp());
+import 'forma_ekran.dart';
+import 'memorijski_izvor.dart';
+import 'statistika_ekran.dart';
+import 'zadatci_izvor.dart';
+import 'zadatci_viewmodel.dart';
+
+// Vrijednosti dolaze iz env.json: flutter run --dart-define-from-file=env.json
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const _supabaseKljuc = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // TODO 2: ako su _supabaseUrl i _supabaseKljuc zadani, pozovite
+  // Supabase.initialize(url: ..., publishableKey: ...) i koristite
+  // SupabaseIzvor(Supabase.instance.client). Inače ostaje MemorijskiIzvor.
+  final ZadatciIzvor izvor = MemorijskiIzvor();
+  runApp(ZadatciApp(izvor: izvor));
+}
 
 class ZadatciApp extends StatelessWidget {
-  const ZadatciApp({super.key});
+  final ZadatciIzvor izvor;
+
+  const ZadatciApp({super.key, required this.izvor});
 
   @override
   Widget build(BuildContext context) {
@@ -17,108 +36,144 @@ class ZadatciApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const ZadatciEkran(),
+      home: ZadatciEkran(izvor: izvor),
     );
   }
 }
 
 class ZadatciEkran extends StatefulWidget {
-  const ZadatciEkran({super.key});
+  final ZadatciIzvor izvor;
+
+  const ZadatciEkran({super.key, required this.izvor});
 
   @override
   State<ZadatciEkran> createState() => _ZadatciEkranState();
 }
 
 class _ZadatciEkranState extends State<ZadatciEkran> {
-  final _repo = ZadatakRepozitorij();
-  final List<Zadatak> _zadaci = [];
-  late Future<void> _ucitavanje = _ucitaj();
+  late final _vm = ZadatciViewModel(widget.izvor);
 
-  Future<void> _ucitaj() async {
-    final podaci = await _repo.dohvati();
-    setState(() {
-      _zadaci
-        ..clear()
-        ..addAll(podaci);
-    });
+  @override
+  void initState() {
+    super.initState();
+    _vm.ucitaj();
   }
 
-  void _ponovi() {
-    setState(() {
-      _ucitavanje = _ucitaj();
-    });
+  @override
+  void dispose() {
+    _vm.dispose();
+    super.dispose();
+  }
+
+  void _poruka(String tekst) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tekst)));
   }
 
   Future<void> _dodaj() async {
-    final novi = await Navigator.push<Zadatak>(
+    final naslov = await Navigator.push<String>(
       context,
-      MaterialPageRoute(builder: (_) => FormaEkran(postojeci: _zadaci)),
+      MaterialPageRoute(builder: (_) => const FormaEkran()),
     );
+    if (!mounted || naslov == null) return;
+    final uspjeh = await _vm.dodaj(naslov);
+    if (!mounted) return;
+    _poruka(uspjeh ? 'Dodano: $naslov' : _vm.poruka);
+  }
 
-    if (!mounted || novi == null) return;
+  Future<void> _promijeni(int id) async {
+    final uspjeh = await _vm.promijeniZavrsen(id);
+    if (!mounted || uspjeh) return;
+    _poruka(_vm.poruka);
+  }
 
-    setState(() => _zadaci.add(novi));
+  Future<void> _obrisi(int id) async {
+    final uspjeh = await _vm.obrisi(id);
+    if (!mounted) return;
+    _poruka(uspjeh ? 'Obrisano' : _vm.poruka);
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Dodano: ${novi.naslov}')),
+  void _otvoriStatistiku() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => StatistikaEkran(vm: _vm)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Zadatci')),
+      appBar: AppBar(
+        title: const Text('Zadatci'),
+        actions: [
+          IconButton(
+            onPressed: _otvoriStatistiku,
+            tooltip: 'Statistika',
+            icon: const Icon(Icons.bar_chart),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _dodaj,
         tooltip: 'Novi zadatak',
         child: const Icon(Icons.add),
       ),
-      body: FutureBuilder<void>(
-        future: _ucitavanje,
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snap.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 8),
-                  Text('${snap.error}'),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: _ponovi,
-                    child: const Text('Pokušaj ponovno'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (_zadaci.isEmpty) {
-            return const Center(child: Text('Nema zadataka'));
-          }
-
-          return ListView.builder(
-            itemCount: _zadaci.length,
-            itemBuilder: (context, i) {
-              final z = _zadaci[i];
-              return ListTile(
-                leading: Icon(
-                  z.zavrsen ? Icons.check_circle : Icons.radio_button_unchecked,
-                ),
-                title: Text(
-                  z.naslov,
-                  style: TextStyle(
-                    decoration: z.zavrsen ? TextDecoration.lineThrough : null,
-                  ),
+      body: ListenableBuilder(
+        listenable: _vm,
+        builder: (context, _) {
+          switch (_vm.stanje) {
+            case Stanje.ucitavanje:
+              return const Center(child: CircularProgressIndicator());
+            case Stanje.greska:
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_vm.poruka),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: _vm.ucitaj,
+                      child: const Text('Pokušaj ponovno'),
+                    ),
+                  ],
                 ),
               );
-            },
-          );
+            case Stanje.uspjeh:
+              if (_vm.zadatci.isEmpty) {
+                return const Center(child: Text('Nema zadataka'));
+              }
+              return ListView.builder(
+                itemCount: _vm.zadatci.length,
+                itemBuilder: (context, i) {
+                  final z = _vm.zadatci[i];
+                  return ListTile(
+                    leading: Checkbox(
+                      value: z.zavrsen,
+                      onChanged: (_) => _promijeni(z.id),
+                    ),
+                    title: Text(
+                      z.naslov,
+                      style: TextStyle(
+                        decoration: z.zavrsen
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                    ),
+                    trailing: IconButton(
+                      // TODO 4: pozovite _obrisi(z.id)
+                      onPressed: null,
+                      tooltip: 'Obriši',
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  );
+                },
+              );
+          }
         },
       ),
     );

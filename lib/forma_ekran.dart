@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'zadatak.dart';
 
 class FormaEkran extends StatefulWidget {
-  /// Postojeći zadatci, potrebni za provjeru duplikata i dodjelu id-a.
-  final List<Zadatak> postojeci;
-  const FormaEkran({super.key, required this.postojeci});
+  const FormaEkran({super.key});
 
   @override
   State<FormaEkran> createState() => _FormaEkranState();
@@ -13,7 +10,6 @@ class FormaEkran extends StatefulWidget {
 class _FormaEkranState extends State<FormaEkran> {
   final _kljuc = GlobalKey<FormState>();
   final _naslov = TextEditingController();
-  bool _zavrsen = false;
 
   @override
   void dispose() {
@@ -30,17 +26,7 @@ class _FormaEkranState extends State<FormaEkran> {
 
   void _spremi() {
     if (!_kljuc.currentState!.validate()) return;
-    final noviId = widget.postojeci.fold<int>(
-          0,
-          (najveci, z) => z.id > najveci ? z.id : najveci,
-        ) +
-        1;
-    final zadatak = Zadatak(
-      id: noviId,
-      naslov: _naslov.text.trim(),
-      zavrsen: _zavrsen,
-    );
-    Navigator.pop(context, zadatak);
+    Navigator.pop(context, _naslov.text.trim());
   }
 
   @override
@@ -64,18 +50,8 @@ class _FormaEkranState extends State<FormaEkran> {
                 validator: _provjeriNaslov,
                 onFieldSubmitted: (_) => _spremi(),
               ),
-              const SizedBox(height: 8),
-              CheckboxListTile(
-                title: const Text('Već završen'),
-                value: _zavrsen,
-                onChanged: (v) => setState(() => _zavrsen = v ?? false),
-                contentPadding: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: _spremi,
-                child: const Text('Spremi'),
-              ),
+              const SizedBox(height: 16),
+              FilledButton(onPressed: _spremi, child: const Text('Spremi')),
             ],
           ),
         ),
